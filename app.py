@@ -14,44 +14,52 @@ if 'preferiti' not in st.session_state:
     st.session_state.preferiti = []
 
 def get_tempi_reali(palina_id):
-    url = f"https://muoversiaroma.it/api/v1/stops/{palina_id}/arrivals"
-
-    # Headers completi per sembrare un browser reale
+    import json
+    # URL originale che vogliamo raggiungere
+    target_url = f"https://muoversiaroma.it/api/v1/stops/{palina_id}/arrivals"
+    
+    # Proxy per superare il blocco CORS/DataCenter
+    proxy_url = f"https://api.allorigins.win/get?url={requests.utils.quote(target_url)}"
+    
+    # Headers che inviamo al proxy (che a sua volta li userà o li maschererà)
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://muoversiaroma.it/it/mappa',
-        'X-Requested-With': 'XMLHttpRequest'
+        'Accept': 'application/json'
     }
-
+    
     try:
-        # Usiamo requests.Session per gestire i cookie (come un vero browser)
-        with requests.Session() as s:
-            response = s.get(url, headers=headers, timeout=7)
-
-            if response.status_code == 200:
-                dati = response.json()
-                # Cerchiamo la lista degli arrivi nel JSON
-                arrivi_raw = dati.get('arrivals', [])
-
-                if not arrivi_raw:
-                    return [{"line": "Oggi", "direction": "Nessuna corsa programmata", "wait": "-"}]
-
-                risultati = []
-                for b in arrivi_raw:
-                    risultati.append({
-                        "line": b.get('line', '?'),
-                        "direction": b.get('destination', 'Destinazione non nota'),
-                        "wait": f"{b.get('time', '0')} min"
-                    })
-                return risultati
-            else:
-                # Caso in cui il server risponde ma con errore (es. 404 o 500)
-                return [{"line": "OFF", "direction": "Servizio momentaneamente sospeso", "wait": "!"}]
+        response = requests.get(proxy_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            # AllOrigins incapsula la risposta originale in una stringa chiamata 'contents'
+            raw_content = response.json().get('contents')
+            
+            if not raw_content:
+                return [{"line": "!", "direction": "Dati non disponibili dal proxy", "wait": "Riprova"}]
+                
+            dati = json.loads(raw_content)
+            arrivals = dati.get('arrivals', []) or dati.get('results', [])
+            
+            if not arrivals:
+                return [{"line": "Info", "direction": "Nessun bus in arrivo", "wait": "-"}]
+            
+            return [
+                {
+                    "line": a.get('line', '?'),
+                    "direction": a.get('destination', 'Ignota'),
+                    "wait": f"{a.get('time', '0')} min"
+                } for a in arrivals
+            ]
+        else:
+            return [{"line": "Err", "direction": f"Proxy Error {response.status_code}", "wait": "X"}]
+            
     except Exception as e:
-        # Caso in cui il server non risponde proprio (timeout)
-        return [{"line": "ATTESA", "direction": "Riconnessione ai server Roma...", "wait": "..."}]
-
+        # Se anche il proxy fallisce, mostriamo un pulsante di emergenza
+        st.error("Il sistema centrale di Roma non risponde.")
+        st.link_button("Apri Orari Ufficiali (Muoversi a Roma)", 
+                       f"https://muoversiaroma.it/it/paline/percorso-linea?id_palina={palina_id}")
+        return [{"line": "Link", "direction": "Usa il tasto sopra", "wait": "↗️"}]
+        
 def cerca_fermata(testo):
     conn = sqlite3.connect('trasporti_roma.db')
     cursor = conn.cursor()
