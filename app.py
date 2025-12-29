@@ -4,9 +4,10 @@ import folium
 from streamlit_folium import st_folium
 import requests
 
-st.set_page_config(page_title="Roma Mobility Hub", page_icon="🌐", layout="wide")
-st.title("🌐 Roma Mobility Hub")
-st.caption("La tua dashboard integrata per il trasporto pubblico a Roma")
+# Nel file app.py su GitHub
+st.set_page_config(page_title="Roma Mobility Dispatcher", page_icon="📡", layout="wide")
+st.title("📡 Roma Mobility Dispatcher")
+st.markdown("---") # Una linea elegante per separare il titolo
 
 # Inizializza i preferiti nella sessione del browser
 if 'preferiti' not in st.session_state:
