@@ -4,7 +4,9 @@ import folium
 from streamlit_folium import st_folium
 import requests
 
-st.set_page_config(page_title="Radar Roma", page_icon="🚌", layout="wide")
+st.set_page_config(page_title="Roma Mobility Hub", page_icon="🌐", layout="wide")
+st.title("🌐 Roma Mobility Hub")
+st.caption("La tua dashboard integrata per il trasporto pubblico a Roma")
 
 # Inizializza i preferiti nella sessione del browser
 if 'preferiti' not in st.session_state:
