@@ -14,51 +14,51 @@ if 'preferiti' not in st.session_state:
     st.session_state.preferiti = []
 
 def get_tempi_reali(palina_id):
-    import json
-    # URL originale che vogliamo raggiungere
-    target_url = f"https://muoversiaroma.it/api/v1/stops/{palina_id}/arrivals"
+    import requests
     
-    # Proxy per superare il blocco CORS/DataCenter
-    proxy_url = f"https://api.allorigins.win/get?url={requests.utils.quote(target_url)}"
+    # Romamobile usa un formato molto semplice per le chiamate API
+    # Sostituiamo il vecchio target_url con quello di Romamobile
+    target_url = f"https://romamobile.it/api/v1/arrivals/{palina_id}"
     
-    # Headers che inviamo al proxy (che a sua volta li userà o li maschererà)
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
     }
     
     try:
-        response = requests.get(proxy_url, headers=headers, timeout=10)
+        # Proviamo prima la chiamata diretta (Romamobile è meno restrittivo)
+        response = requests.get(target_url, headers=headers, timeout=5)
         
-        if response.status_code == 200:
-            # AllOrigins incapsula la risposta originale in una stringa chiamata 'contents'
+        # Se la diretta fallisce (status non 200), proviamo col proxy allorigins
+        if response.status_code != 200:
+            proxy_url = f"https://api.allorigins.win/get?url={requests.utils.quote(target_url)}"
+            response = requests.get(proxy_url, timeout=10)
+            import json
             raw_content = response.json().get('contents')
-            
-            if not raw_content:
-                return [{"line": "!", "direction": "Dati non disponibili dal proxy", "wait": "Riprova"}]
-                
             dati = json.loads(raw_content)
-            arrivals = dati.get('arrivals', []) or dati.get('results', [])
-            
-            if not arrivals:
-                return [{"line": "Info", "direction": "Nessun bus in arrivo", "wait": "-"}]
-            
-            return [
-                {
-                    "line": a.get('line', '?'),
-                    "direction": a.get('destination', 'Ignota'),
-                    "wait": f"{a.get('time', '0')} min"
-                } for a in arrivals
-            ]
         else:
-            return [{"line": "Err", "direction": f"Proxy Error {response.status_code}", "wait": "X"}]
+            dati = response.json()
+
+        # Romamobile organizza i dati in modo leggermente diverso
+        # Di solito restituisce una lista di arrivi direttamente o sotto 'arrivals'
+        arrivals = dati if isinstance(dati, list) else dati.get('arrivals', [])
+        
+        if not arrivals:
+            return [{"line": "Info", "direction": "Nessun bus/Dati non disp.", "wait": "-"}]
+        
+        return [
+            {
+                "line": str(a.get('line', '??')),
+                "direction": a.get('destination', 'In arrivo'),
+                "wait": f"{a.get('time', '0')}" # Romamobile spesso mette già 'min' o il tempo
+            } for a in arrivals
+        ]
             
     except Exception as e:
-        # Se anche il proxy fallisce, mostriamo un pulsante di emergenza
-        st.error("Il sistema centrale di Roma non risponde.")
-        st.link_button("Apri Orari Ufficiali (Muoversi a Roma)", 
-                       f"https://muoversiaroma.it/it/paline/percorso-linea?id_palina={palina_id}")
-        return [{"line": "Link", "direction": "Usa il tasto sopra", "wait": "↗️"}]
+        st.warning(f"⚠️ Connessione a RomaMobile difficoltosa.")
+        # Il nuovo pulsante di emergenza punta al nuovo sito
+        st.link_button("Apri Tabellone Live (RomaMobile)", 
+                       f"https://romamobile.it/paline/?nav=2&Submit=Cerca&cerca={palina_id}")
+        return [{"line": "Link", "direction": "Usa il tasto sopra", "wait": "↗️"}]        
         
 def cerca_fermata(testo):
     conn = sqlite3.connect('trasporti_roma.db')
