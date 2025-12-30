@@ -14,52 +14,17 @@ if 'preferiti' not in st.session_state:
     st.session_state.preferiti = []
 
 def get_tempi_reali(palina_id):
-    import requests
+        # Creiamo il link diretto alla pagina della palina su RomaMobile
+    url_live = f"https://romamobile.it/paline/?nav=2&Submit=Cerca&cerca={palina_id}"
     
-    # Romamobile usa un formato molto semplice per le chiamate API
-    # Sostituiamo il vecchio target_url con quello di Romamobile
-    target_url = f"https://romamobile.it/api/v1/arrivals/{palina_id}"
+    st.info(f"📡 Recupero dati in corso per la Palina {palina_id}...")
     
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    }
+    # Questo comando "incorpora" il sito di RomaMobile dentro la tua app
+    st.components.v1.iframe(url_live, height=500, scrolling=True)
     
-    try:
-        # Proviamo prima la chiamata diretta (Romamobile è meno restrittivo)
-        response = requests.get(target_url, headers=headers, timeout=5)
-        
-        # Se la diretta fallisce (status non 200), proviamo col proxy allorigins
-        if response.status_code != 200:
-            proxy_url = f"https://api.allorigins.win/get?url={requests.utils.quote(target_url)}"
-            response = requests.get(proxy_url, timeout=10)
-            import json
-            raw_content = response.json().get('contents')
-            dati = json.loads(raw_content)
-        else:
-            dati = response.json()
-
-        # Romamobile organizza i dati in modo leggermente diverso
-        # Di solito restituisce una lista di arrivi direttamente o sotto 'arrivals'
-        arrivals = dati if isinstance(dati, list) else dati.get('arrivals', [])
-        
-        if not arrivals:
-            return [{"line": "Info", "direction": "Nessun bus/Dati non disp.", "wait": "-"}]
-        
-        return [
-            {
-                "line": str(a.get('line', '??')),
-                "direction": a.get('destination', 'In arrivo'),
-                "wait": f"{a.get('time', '0')}" # Romamobile spesso mette già 'min' o il tempo
-            } for a in arrivals
-        ]
-            
-    except Exception as e:
-        st.warning(f"⚠️ Connessione a RomaMobile difficoltosa.")
-        # Il nuovo pulsante di emergenza punta al nuovo sito
-        st.link_button("Apri Tabellone Live (RomaMobile)", 
-                       f"https://romamobile.it/paline/?nav=2&Submit=Cerca&cerca={palina_id}")
-        return [{"line": "Link", "direction": "Usa il tasto sopra", "wait": "↗️"}]        
-        
+    # Restituiamo una lista vuota per non far rompere il resto del codice
+    return []
+    
 def cerca_fermata(testo):
     conn = sqlite3.connect('trasporti_roma.db')
     cursor = conn.cursor()
